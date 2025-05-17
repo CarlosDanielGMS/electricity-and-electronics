@@ -78,6 +78,8 @@ int main()
 
             setLED(currentColor);
         }
+
+        sleep_ms(150);
     }
 }
 
