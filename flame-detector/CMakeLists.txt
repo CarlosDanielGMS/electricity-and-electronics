@@ -61,8 +61,8 @@ target_link_libraries(flame-detector
         hardware_spi
         hardware_i2c
         hardware_pio
-        
-        )
+        hardware_pwm
+)
 
 pico_add_extra_outputs(flame-detector)
 
