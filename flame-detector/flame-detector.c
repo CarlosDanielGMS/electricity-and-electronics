@@ -14,8 +14,11 @@
 #define NOT_PRESSED 1
 #define OFF 0
 #define ON 1024
+#define RECEIVED 1
+#define NOT_RECEIVED 0
 
 #define RESET_BUTTON_PIN 6
+#define SIGNAL_STATUS_PIN 8
 #define GREEN_LED_PIN 11
 #define BLUE_LED_PIN 12
 #define RED_LED_PIN 13
@@ -34,24 +37,43 @@ bool resetButtonStatus = NOT_PRESSED;
 unsigned short int redLedPwmLevel = OFF, greenLedPwmLevel = OFF, blueLedPwmLevel = OFF;
 unsigned int redLedSlice, greenLedSlice, blueLedSlice;
 
-unsigned short int selectedFrequency = 741;
+unsigned short int chosenFrequency = 0;
+
+bool signalStatus = NOT_RECEIVED;
 
 void initializeComponents();
-void readButtons();
+void readEntries();
 void setLED(char color);
-void emitBuzzerAlert();
+void emitBuzzerAlert(unsigned short frequency);
+void stopBuzzerAlert();
 
 int main()
 {
     initializeComponents();
 
+    chosenFrequency = 741;
+
     while (true)
     {
-        readButtons();
+        readEntries();
 
         if (resetButtonStatus == PRESSED)
         {
             reset_usb_boot(0, 0);
+        }
+        else if (signalStatus == RECEIVED)
+        {
+            setLED(GREEN);
+            emitBuzzerAlert(chosenFrequency);
+
+            sleep_ms(1000);
+            
+            setLED(TURN_OFF);
+            stopBuzzerAlert();
+
+            sleep_ms(500);
+
+            signalStatus = NOT_RECEIVED;
         }
     }
 }
@@ -90,11 +112,16 @@ void initializeComponents()
     pwm_config_set_clkdiv(&config, 4.0f);
     pwm_init(slice_num, &config, true);
     pwm_set_gpio_level(BUZZER_PIN, 0);
+
+    gpio_init(SIGNAL_STATUS_PIN);
+    gpio_set_dir(SIGNAL_STATUS_PIN, IN);
+    gpio_pull_down(SIGNAL_STATUS_PIN);
 }
 
-void readButtons()
+void readEntries()
 {
     resetButtonStatus = gpio_get(RESET_BUTTON_PIN);
+    signalStatus = gpio_get(SIGNAL_STATUS_PIN);
 }
 
 void setLED(char color)
@@ -133,17 +160,17 @@ void setLED(char color)
     }
 }
 
-void emitBuzzerAlert()
+void emitBuzzerAlert(unsigned short frequency)
 {
     uint slice_num = pwm_gpio_to_slice_num(BUZZER_PIN);
     uint32_t clock_freq = clock_get_hz(clk_sys);
-    uint32_t top = clock_freq / selectedFrequency;
+    uint32_t top = clock_freq / frequency;
 
     pwm_set_wrap(slice_num, top);
     pwm_set_gpio_level(BUZZER_PIN, top / 2);
+}
 
-    sleep_ms(500);
-
+void stopBuzzerAlert()
+{
     pwm_set_gpio_level(BUZZER_PIN, 0);
-    sleep_ms(50);
 }
