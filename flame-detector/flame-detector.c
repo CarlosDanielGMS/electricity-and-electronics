@@ -1,3 +1,4 @@
+#include "hardware/clocks.h"
 #include "hardware/i2c.h"
 #include "hardware/pio.h"
 #include "hardware/pwm.h"
@@ -18,6 +19,7 @@
 #define GREEN_LED_PIN 11
 #define BLUE_LED_PIN 12
 #define RED_LED_PIN 13
+#define BUZZER_PIN 21
 
 #define PWM_DIVIDER 16
 #define PWM_PERIOD 4096
@@ -32,9 +34,12 @@ bool resetButtonStatus = NOT_PRESSED;
 unsigned short int redLedPwmLevel = OFF, greenLedPwmLevel = OFF, blueLedPwmLevel = OFF;
 unsigned int redLedSlice, greenLedSlice, blueLedSlice;
 
+unsigned short int selectedFrequency = 741;
+
 void initializeComponents();
 void readButtons();
 void setLED(char color);
+void emitBuzzerAlert();
 
 int main()
 {
@@ -78,6 +83,13 @@ void initializeComponents()
     pwm_set_gpio_level(BLUE_LED_PIN, blueLedPwmLevel);
     pwm_set_enabled(blueLedSlice, true);
     setLED(TURN_OFF);
+
+    gpio_set_function(BUZZER_PIN, GPIO_FUNC_PWM);
+    unsigned int slice_num = pwm_gpio_to_slice_num(BUZZER_PIN);
+    pwm_config config = pwm_get_default_config();
+    pwm_config_set_clkdiv(&config, 4.0f);
+    pwm_init(slice_num, &config, true);
+    pwm_set_gpio_level(BUZZER_PIN, 0);
 }
 
 void readButtons()
@@ -119,4 +131,19 @@ void setLED(char color)
         pwm_set_gpio_level(BLUE_LED_PIN, OFF);
         break;
     }
+}
+
+void emitBuzzerAlert()
+{
+    uint slice_num = pwm_gpio_to_slice_num(BUZZER_PIN);
+    uint32_t clock_freq = clock_get_hz(clk_sys);
+    uint32_t top = clock_freq / selectedFrequency;
+
+    pwm_set_wrap(slice_num, top);
+    pwm_set_gpio_level(BUZZER_PIN, top / 2);
+
+    sleep_ms(500);
+
+    pwm_set_gpio_level(BUZZER_PIN, 0);
+    sleep_ms(50);
 }
